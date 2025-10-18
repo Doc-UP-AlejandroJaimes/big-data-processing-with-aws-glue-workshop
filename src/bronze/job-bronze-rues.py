@@ -122,16 +122,28 @@ def validate_dataframe(df):
 # ============================================
 # GUARDAR EN FORMATO PARQUET
 # ============================================
-def save_dataframe(path:str):
+def save_dataframe(df, path):
     logger.info("Guardando datos en formato Parquet")
 
     try:
+        # Extraer año de fecha_actualizacion para particionar
+        df_with_partition = df.withColumn(
+            'year_partition',
+            F.year(F.to_timestamp(F.col('fecha_actualizacion'), 'yyyy/MM/dd HH:mm:ss.SSSSSSSSS'))
+        )
+        
+        # Reparticionar para mejor paralelismo (con 10 workers, usa 20-40 particiones)
+        df_repartitioned = df_with_partition.repartition(30, 'year_partition')
+        
+        # Convertir a DynamicFrame
+        dynamic_frame = DynamicFrame.fromDF(df_repartitioned, glueContext, "dynamic_frame_empresas")
+        
         glueContext.write_dynamic_frame.from_options(
-            frame=dynamic_frame_empresas,
+            frame=dynamic_frame,
             connection_type="s3",
             connection_options={
                 "path": path,
-                "partitionKeys": []
+                "partitionKeys": ["year_partition"]
             },
             format="parquet",
             format_options={
@@ -141,6 +153,7 @@ def save_dataframe(path:str):
         
         logger.info("Datos guardados exitosamente en formato Parquet")
         logger.info(f"Ubicacion: {path}")
+        logger.info("Datos particionados por year_partition (año de fecha_actualizacion)")
         
     except Exception as e:
         logger.error(f"Error al guardar datos en Parquet: {str(e)}")
