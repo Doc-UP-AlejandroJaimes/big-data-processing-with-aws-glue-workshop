@@ -40,6 +40,10 @@ spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
+# Configurar manejo de fechas antiguas
+spark.conf.set("spark.sql.parquet.datetimeRebaseModeInWrite", "LEGACY")
+spark.conf.set("spark.sql.parquet.int96RebaseModeInWrite", "LEGACY")
+
 # Obtener parámetros
 BUCKET = args['BUCKET']
 BRONZE_PATH = args['BRONZE_PATH']
@@ -147,10 +151,28 @@ def aplicar_rn001_estandarizacion_fechas(df):
     fechas_convertidas = 0
     for col_fecha in fechas_columnas:
         if col_fecha in df.columns:
+            # Intentar convertir en múltiples formatos
             df = df.withColumn(
-                col_fecha,
-                F.to_date(F.col(col_fecha).cast("string"), "yyyyMMdd")
+                col_fecha + '_temp',
+                F.coalesce(
+                    # Formato 1: yyyyMMdd (números de 8 dígitos)
+                    F.when(
+                        (F.length(F.trim(F.col(col_fecha))) == 8) & 
+                        (F.col(col_fecha).rlike('^[0-9]{8}$')),
+                        F.to_date(F.col(col_fecha).cast('string'), 'yyyyMMdd')
+                    ),
+                    # Formato 2: yyyy/MM/dd HH:mm:ss.SSSSSSSSS (timestamp completo)
+                    F.when(
+                        F.col(col_fecha).contains('/'),
+                        F.to_date(F.to_timestamp(F.col(col_fecha), 'yyyy/MM/dd HH:mm:ss.SSSSSSSSS'))
+                    ),
+                    # Si no coincide con ningún formato, dejar como NULL
+                    F.lit(None).cast('date')
+                )
             )
+            
+            # Reemplazar la columna original
+            df = df.drop(col_fecha).withColumnRenamed(col_fecha + '_temp', col_fecha)
             fechas_convertidas += 1
     
     logger.info(f"Columnas de fecha estandarizadas: {fechas_convertidas}")
