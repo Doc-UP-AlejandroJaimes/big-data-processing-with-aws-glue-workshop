@@ -29,10 +29,6 @@ En la pestaña **Job details**, configure los siguientes parámetros:
 - **Número de workers:** 10
 - **Tiempo de espera del trabajo:** 480 minutos
 
-**Configuración avanzada:**
-- **Ruta del script:** `s3://glue-bucket-rues-{codigo}/scripts/job-bronze-empresas.py`
-- **Directorio temporal:** `s3://glue-bucket-rues-{codigo}/scripts/temp/`
-
 ## Paso 3: Agregar parámetros del Job
 
 En la sección **Job parameters**, agregue los siguientes parámetros:

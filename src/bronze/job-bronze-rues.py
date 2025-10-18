@@ -167,12 +167,10 @@ if __name__ == '__main__':
     df = load_data(FILE_FULL_PATH)
     # 02. Validate dataframe
     validate_dataframe(df)
-    # 03. Convert to dynamicframe
-    dynamic_frame_empresas = DynamicFrame.fromDF(df, glueContext, "dynamic_frame_empresas")
-    # 04. save in parquet format
+    # 03. save in parquet format
     FILE_PATH_SAVE = os.path.join(BRONZE_PATH, "RUES_DATA_BRONZE_PARQUET")
-    save_dataframe(FILE_PATH_SAVE)
-    # 05. End Job
+    save_dataframe(df, FILE_PATH_SAVE)
+    # 04. End Job
     job.commit()
     logger.info("Job Bronze completado exitosamente")
     logger.info("Los datos estan listos para ser procesados en la capa Silver")
